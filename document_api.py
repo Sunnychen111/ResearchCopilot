@@ -14,6 +14,7 @@ from database import BASE_DIR,SessionLocal
 from model import Document
 from fastapi import BackgroundTasks
 from ingest_pdf import ingest_document
+from rag_sqlite import refresh_retrieval
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +209,8 @@ def process_document_background(document_id:int):
         logger.info(
             "论文解析完成"
         )
+        refresh_retrieval()
+
     except Exception:
         logger.exception(
             "后台 PDF 解析失败，ID=%s",

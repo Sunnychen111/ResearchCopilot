@@ -47,6 +47,12 @@ def get_retriever():
 
     return SQLiteHybridRetriever()
 
+def refresh_retrieval():
+    retriever = get_retriever()
+    retriever.refresh_index()
+
+    return retriever
+
 
 def rag_chat(question: str) -> dict:
     """
@@ -151,6 +157,9 @@ if __name__ == "__main__":
     retriever = get_retriever()
 
     print("索引中的 Chunk 数量：", len(retriever.chunks))
+
+    refresh_retrieval()
+    print("刷新后的chunk数量")
 
     result = rag_chat(question)
 

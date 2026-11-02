@@ -16,6 +16,8 @@ import {
   WifiOff,
 } from 'lucide-react'
 
+import DocumentsPage from './documentPage.jsx'
+
 const API_BASE = 'http://127.0.0.1:8000'
 
 const EXAMPLES = [
@@ -96,6 +98,8 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [apiStatus, setApiStatus] = useState('checking')
+  // 当前页面：chat 或 documents
+  const [activePage, setActivePage] = useState('chat')
 
   const inputRef = useRef(null)
   const bottomRef = useRef(null)
@@ -198,13 +202,16 @@ function App() {
 
   // 新建对话，仅清除当前页面的对话记录
   function newChat() {
+    setActivePage('chat')
     setMessages([])
     setQuestion('')
     setError('')
     inputRef.current?.focus()
   }
 
+
   function selectExample(text) {
+    setActivePage('chat')
     setQuestion(text)
     inputRef.current?.focus()
   }
@@ -230,6 +237,15 @@ function App() {
         >
           <Plus size={18} />
           新建对话
+        </button>
+
+        <button
+          type="button"
+          className="sidebar-example"
+          onClick={() => setActivePage('documents')}
+        >
+          <Database size={18} />
+          <span>我的文献库</span>
         </button>
 
         <div className="sidebar-heading">推荐问题</div>
@@ -277,156 +293,159 @@ function App() {
 
       {/* 主工作区 */}
       <main className="workspace">
-        <header className="topbar">
-          <div>
-            <span className="topbar-caption">RESEARCH WORKSPACE</span>
-            <h1>科研知识库问答</h1>
-          </div>
-
-          <div className="model-label">
-            <Sparkles size={15} />
-            BGE · BM25 · RRF · DeepSeek
-          </div>
-        </header>
-
-        <section className="chat-area">
-          {messages.length === 0 ? (
-            <div className="welcome">
-              <div className="welcome-icon">
-                <BrainCircuit size={32} />
+        {activePage == 'documents' ?
+          (<DocumentsPage />) : (<>
+            <header className="topbar">
+              <div>
+                <span className="topbar-caption">RESEARCH WORKSPACE</span>
+                <h1>科研知识库问答</h1>
               </div>
 
-              <div className="welcome-kicker">
-                YOUR RESEARCH ASSISTANT
+              <div className="model-label">
+                <Sparkles size={15} />
+                BGE · BM25 · RRF · DeepSeek
               </div>
+            </header>
 
-              <h2>让科研问题更容易找到答案</h2>
+            <section className="chat-area">
+              {messages.length === 0 ? (
+                <div className="welcome">
+                  <div className="welcome-icon">
+                    <BrainCircuit size={32} />
+                  </div>
 
-              <p>
-                基于本地科研文献知识库，通过混合检索与大模型生成，
-                帮助你理解论文方法、比较技术路线，并查看对应的检索证据。
-              </p>
+                  <div className="welcome-kicker">
+                    YOUR RESEARCH ASSISTANT
+                  </div>
 
-              <div className="welcome-examples">
-                {EXAMPLES.map((example, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => selectExample(example)}
-                  >
-                    <FileText size={17} />
-                    <span>{example}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="message-list">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`message-row ${message.role}`}
-                >
-                  {message.role === 'assistant' && (
-                    <div className="assistant-avatar">
-                      <Bot size={20} />
+                  <h2>让科研问题更容易找到答案</h2>
+
+                  <p>
+                    基于本地科研文献知识库，通过混合检索与大模型生成，
+                    帮助你理解论文方法、比较技术路线，并查看对应的检索证据。
+                  </p>
+
+                  <div className="welcome-examples">
+                    {EXAMPLES.map((example, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => selectExample(example)}
+                      >
+                        <FileText size={17} />
+                        <span>{example}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="message-list">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`message-row ${message.role}`}
+                    >
+                      {message.role === 'assistant' && (
+                        <div className="assistant-avatar">
+                          <Bot size={20} />
+                        </div>
+                      )}
+
+                      <div className="message-body">
+                        {message.role === 'user' ? (
+                          <div className="user-bubble">
+                            {message.text}
+                          </div>
+                        ) : (
+                          <div className="assistant-response">
+                            <div className="assistant-name">
+                              ResearchCopilot
+                            </div>
+
+                            <div className="markdown-body">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                              >
+                                {message.text}
+                              </ReactMarkdown>
+                            </div>
+
+                            <EvidenceList docs={message.docs} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {loading && (
+                    <div className="message-row assistant">
+                      <div className="assistant-avatar">
+                        <Bot size={20} />
+                      </div>
+
+                      <div className="loading-message">
+                        <span className="loading-dots">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        正在检索文献并生成回答……
+                      </div>
                     </div>
                   )}
 
-                  <div className="message-body">
-                    {message.role === 'user' ? (
-                      <div className="user-bubble">
-                        {message.text}
-                      </div>
-                    ) : (
-                      <div className="assistant-response">
-                        <div className="assistant-name">
-                          ResearchCopilot
-                        </div>
-
-                        <div className="markdown-body">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                          >
-                            {message.text}
-                          </ReactMarkdown>
-                        </div>
-
-                        <EvidenceList docs={message.docs} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {loading && (
-                <div className="message-row assistant">
-                  <div className="assistant-avatar">
-                    <Bot size={20} />
-                  </div>
-
-                  <div className="loading-message">
-                    <span className="loading-dots">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    正在检索文献并生成回答……
-                  </div>
+                  {error && (
+                    <div className="error-message" role="alert">
+                      {error}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {error && (
-                <div className="error-message" role="alert">
-                  {error}
+              <div ref={bottomRef} />
+            </section>
+
+            {/* 底部输入区域 */}
+            <footer className="composer">
+              <form onSubmit={submitQuestion}>
+                <div className="composer-box">
+                  <textarea
+                    ref={inputRef}
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="输入你的科研问题，例如：DPTracker 与 3DPT 有什么区别？"
+                    rows={2}
+                    maxLength={2000}
+                    disabled={loading}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === 'Enter' &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing
+                      ) {
+                        e.preventDefault()
+                        submitQuestion()
+                      }
+                    }}
+                  />
+
+                  <button
+                    type="submit"
+                    className="send-button"
+                    disabled={!question.trim() || loading}
+                    aria-label="发送问题"
+                  >
+                    <ArrowUp size={21} />
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
 
-          <div ref={bottomRef} />
-        </section>
-
-        {/* 底部输入区域 */}
-        <footer className="composer">
-          <form onSubmit={submitQuestion}>
-            <div className="composer-box">
-              <textarea
-                ref={inputRef}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="输入你的科研问题，例如：DPTracker 与 3DPT 有什么区别？"
-                rows={2}
-                maxLength={2000}
-                disabled={loading}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault()
-                    submitQuestion()
-                  }
-                }}
-              />
-
-              <button
-                type="submit"
-                className="send-button"
-                disabled={!question.trim() || loading}
-                aria-label="发送问题"
-              >
-                <ArrowUp size={21} />
-              </button>
-            </div>
-
-            <div className="composer-footer">
-              <span>Enter 发送 · Shift + Enter 换行</span>
-              <span>{question.length} / 2000</span>
-            </div>
-          </form>
-        </footer>
+                <div className="composer-footer">
+                  <span>Enter 发送 · Shift + Enter 换行</span>
+                  <span>{question.length} / 2000</span>
+                </div>
+              </form>
+            </footer>
+          </>)}
       </main>
     </div>
   )

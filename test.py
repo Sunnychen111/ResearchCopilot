@@ -1,72 +1,41 @@
 
-# test_pdf_chunks.py
-# 仅解析 PDF 并预览 Chunk，不修改 SQLite
+import sqlite3
+from database import DB_PATH
 
-import argparse
+# 连接当前项目使用的 SQLite 数据库
+conn = sqlite3.connect(DB_PATH)
 
-from pdf_parser import parse_pdf
+# 查询每篇论文对应的 Chunk 数量
+sql = """
+SELECT
+    d.id,
+    d.filename,
+    d.status,
+    COUNT(c.id) AS chunk_count
+FROM documents d
+LEFT JOIN chunks c
+    ON d.id = c.document_id
+GROUP BY d.id, d.filename, d.status
+ORDER BY d.id;
+"""
 
+rows = conn.execute(sql).fetchall()
 
-def main():
+print("数据库位置：", DB_PATH)
+print("\n========== 文献入库检查 ==========")
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "pdf_path",
-        help="需要测试的 PDF 路径"
+for row in rows:
+    print(
+        f"ID: {row[0]} | "
+        f"论文: {row[1]} | "
+        f"状态: {row[2]} | "
+        f"Chunk 数量: {row[3]}"
     )
 
-    args = parser.parse_args()
+print("\n文献总数：", len(rows))
+print(
+    "Chunk 总数：",
+    sum(row[3] for row in rows)
+)
 
-    # 使用新版本的 Markdown Chunk 解析器
-    chunks = parse_pdf(
-        args.pdf_path,
-        chunk_size=800
-    )
-
-    print("\n========== 检查结果 ==========")
-
-    print("Chunk 总数量：", len(chunks))
-
-    # 检查 Chunk 的长度分布
-    lengths = [len(chunk["content"]) for chunk in chunks]
-
-    print("最短 Chunk：", min(lengths))
-    print("最长 Chunk：", max(lengths))
-
-    # 检查超过 800 字符的 Chunk
-    oversized = [
-        chunk for chunk in chunks
-        if len(chunk["content"]) > 800
-    ]
-
-    print("超过 800 字符的 Chunk：", len(oversized))
-
-    # 查看前两个 Chunk 的结尾
-    # 注意：之前只打印了前 500 字符
-    for chunk in chunks[:2]:
-        print(f"\nChunk {chunk['chunk_index']} 结尾：")
-        print(repr(chunk["content"][-150:]))
-
-    # 检查每个 Chunk 的必需字段
-    for index, chunk in enumerate(chunks):
-
-        assert chunk["chunk_index"] == index
-        assert chunk["page_number"] >= 1
-        assert chunk["content"].strip()
-
-    # 打印前 3 个 Chunk
-    for chunk in chunks[:3]:
-
-        print(
-            f"\nChunk {chunk['chunk_index']}"
-            f"｜第 {chunk['page_number']} 页"
-        )
-
-        print(chunk["content"][:500])
-
-    print("\nPDF Chunk 解析测试通过！")
-
-
-if __name__ == "__main__":
-    main()
+conn.close()
