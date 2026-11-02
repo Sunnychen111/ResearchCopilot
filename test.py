@@ -1,57 +1,71 @@
 
-# preview_pdf.py
-# 专门查看 PDF 解析结果，不写入数据库
+# test_pdf_chunks.py
+# 仅解析 PDF 并预览 Chunk，不修改 SQLite
 
 import argparse
-from pathlib import Path
 
-from pdf_parser import extract_pdf_pages
+from pdf_parser import parse_pdf
 
 
 def main():
 
-    parser = argparse.ArgumentParser(
-        description="预览 PDF 版面解析结果"
-    )
+    parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "pdf_path",
-        help="需要检查的 PDF 路径"
+        help="需要测试的 PDF 路径"
     )
 
     args = parser.parse_args()
 
-    # 调用新版版面解析器
-    pages = extract_pdf_pages(args.pdf_path)
-
-    output_lines = []
-
-    for page in pages:
-
-        page_number = page["page_number"]
-        content = page["content"]
-
-        output_lines.append(
-            f"\n{'=' * 30}\n"
-            f"第 {page_number} 页\n"
-            f"{'=' * 30}\n"
-            f"{content}\n"
-        )
-
-        # 只预览前两页，避免终端输出过长
-        if page_number <= 2:
-            print(f"\n=== 第 {page_number} 页 ===")
-            print(content[:1000])
-
-    # 保存整个解析结果为 UTF-8 文件
-    output_path = Path("pdf_layout_preview.md")
-
-    output_path.write_text(
-        "\n".join(output_lines),
-        encoding="utf-8"
+    # 使用新版本的 Markdown Chunk 解析器
+    chunks = parse_pdf(
+        args.pdf_path,
+        chunk_size=800
     )
 
-    print(f"\n解析预览已保存：{output_path.resolve()}")
+    print("\n========== 检查结果 ==========")
+
+    print("Chunk 总数量：", len(chunks))
+
+    # 检查 Chunk 的长度分布
+    lengths = [len(chunk["content"]) for chunk in chunks]
+
+    print("最短 Chunk：", min(lengths))
+    print("最长 Chunk：", max(lengths))
+
+    # 检查超过 800 字符的 Chunk
+    oversized = [
+        chunk for chunk in chunks
+        if len(chunk["content"]) > 800
+    ]
+
+    print("超过 800 字符的 Chunk：", len(oversized))
+
+    # 查看前两个 Chunk 的结尾
+    # 注意：之前只打印了前 500 字符
+    for chunk in chunks[:2]:
+        print(f"\nChunk {chunk['chunk_index']} 结尾：")
+        print(repr(chunk["content"][-150:]))
+
+    # 检查每个 Chunk 的必需字段
+    for index, chunk in enumerate(chunks):
+
+        assert chunk["chunk_index"] == index
+        assert chunk["page_number"] >= 1
+        assert chunk["content"].strip()
+
+    # 打印前 3 个 Chunk
+    for chunk in chunks[:3]:
+
+        print(
+            f"\nChunk {chunk['chunk_index']}"
+            f"｜第 {chunk['page_number']} 页"
+        )
+
+        print(chunk["content"][:500])
+
+    print("\nPDF Chunk 解析测试通过！")
 
 
 if __name__ == "__main__":

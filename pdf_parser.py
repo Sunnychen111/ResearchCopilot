@@ -11,6 +11,7 @@
 
 import re
 from pathlib import Path
+from markdown_chunker import chunk_markdown
 
 import pymupdf
 import pymupdf4llm
@@ -220,7 +221,6 @@ def split_text(
 def parse_pdf(
     pdf_path: str | Path,
     chunk_size: int = 800,
-    overlap: int = 120
 ) -> list[dict]:
     """
     PDF 解析入口。
@@ -245,10 +245,9 @@ def parse_pdf(
             print(f"第 {page_number} 页：跳过空文本")
             continue
 
-        page_chunks = split_text(
+        page_chunks = chunk_markdown(
             page_text,
-            chunk_size=chunk_size,
-            overlap=overlap
+            max_chars=chunk_size
         )
 
         # 第三步：生成数据库需要的结构

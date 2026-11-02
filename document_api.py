@@ -12,6 +12,8 @@ from sqlalchemy.exc import IntegrityError
 
 from database import BASE_DIR,SessionLocal
 from model import Document
+from fastapi import BackgroundTasks
+from ingest_pdf import ingest_document
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,10 @@ Upload_DIR.mkdir(parents=True,exist_ok=True)
 MAX_PDF_SIZE = 20*1024*1024
 
 @router.post("/upload",status_code=201)
-async def upload_document(file:UploadFile = File(...)):
+async def upload_document(
+    background_tasks:BackgroundTasks,
+    file:UploadFile = File(...)
+):
 
     # 只保留文件名，避免实际路径
     filename = (
@@ -134,6 +139,11 @@ async def upload_document(file:UploadFile = File(...)):
             db.commit()
 
             db.refresh(document)
+
+            background_tasks.add_task(
+                process_document_background,
+                document.id
+            )
         except IntegrityError:
             db.rollback()
 
@@ -185,3 +195,21 @@ def list_documents():
         }
         for document in documents
     ]
+
+def process_document_background(document_id:int):
+    try:
+        logger.info(
+            "开始后台解析论文，ID=%s",
+            document_id
+        )
+
+        ingest_document(document_id)
+
+        logger.info(
+            "论文解析完成"
+        )
+    except Exception:
+        logger.exception(
+            "后台 PDF 解析失败，ID=%s",
+            document_id
+        )

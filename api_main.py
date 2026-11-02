@@ -5,15 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from openai import OpenAIError
 
-from rag_demo import rag_chat
+from rag_sqlite import rag_chat
 from document_api import router as document_router
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title = "ReseachCopilot API",
-    description="基于BGE、BM25、RRF和DeepSeek的科研知识库问答服务",
-    version="0.1.0"
+    description= "基于 SQLite、BGE、BM25、RRF "
+        "和 DeepSeek 的科研知识库问答系统",
+    version="0.2.0"
 )
 
 app.include_router(document_router)
@@ -37,6 +38,10 @@ class RetrievedDocument(BaseModel):
     content: str
     rrf_score: float
     source: list[str]
+
+    document_id : int|None = None
+    filename: str |None = None
+    page_number: int |None=None
 
 # 定义结果检索结构
 class ChatRequest(BaseModel):

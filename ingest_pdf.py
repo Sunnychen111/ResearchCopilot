@@ -31,8 +31,7 @@ def ingest_document(document_id: int):
         try:
             parse_chunks = parse_pdf(
                 pdf_path,
-                chunk_size=800,
-                overlap=120
+                chunk_size=800
             )
 
             if not parse_chunks:
