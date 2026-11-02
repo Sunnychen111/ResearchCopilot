@@ -1,0 +1,28 @@
+# API 密钥和环境变量
+.env
+.env.*
+!.env.example
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# SQLite 数据库
+*.db
+*.sqlite3
+
+# 上传的 PDF 文件
+uploads/
+
+# React 依赖和构建文件
+node_modules/
+frontend/dist/
+
+# Python 虚拟环境
+.venv/
+venv/
+
+# 模型权重
+*.pth
+*.pt
+*.safetensors
