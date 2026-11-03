@@ -8,6 +8,8 @@ from openai import OpenAIError
 from rag_sqlite import rag_chat
 from document_api import router as document_router
 
+from conversation_api import router as conversation_router
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -18,6 +20,7 @@ app = FastAPI(
 )
 
 app.include_router(document_router)
+app.include_router(conversation_router)
 
 # 允许本地React开发服务器访问
 app.add_middleware(
