@@ -1,41 +1,24 @@
+from rag_context import expand_neighbor_chunks
 
-import sqlite3
-from database import DB_PATH
+# 模拟检索命中 C314
+retrieved_docs = [{
+    "id": "C314",
+    "document_id": 0,
+    "filename": "DUTrack.pdf",
+    "page_number": 6,
+    "section": "Experiments",
+    "content": "DUTrack-256 achieves comparable results...",
+    "rrf_score": 0.03,
+    "source": ["BGE", "BM25"]
+}]
 
-# 连接当前项目使用的 SQLite 数据库
-conn = sqlite3.connect(DB_PATH)
-
-# 查询每篇论文对应的 Chunk 数量
-sql = """
-SELECT
-    d.id,
-    d.filename,
-    d.status,
-    COUNT(c.id) AS chunk_count
-FROM documents d
-LEFT JOIN chunks c
-    ON d.id = c.document_id
-GROUP BY d.id, d.filename, d.status
-ORDER BY d.id;
-"""
-
-rows = conn.execute(sql).fetchall()
-
-print("数据库位置：", DB_PATH)
-print("\n========== 文献入库检查 ==========")
-
-for row in rows:
-    print(
-        f"ID: {row[0]} | "
-        f"论文: {row[1]} | "
-        f"状态: {row[2]} | "
-        f"Chunk 数量: {row[3]}"
-    )
-
-print("\n文献总数：", len(rows))
-print(
-    "Chunk 总数：",
-    sum(row[3] for row in rows)
+expanded = expand_neighbor_chunks(
+    retrieved_docs,
+    window=2
 )
 
-conn.close()
+for doc in expanded:
+    print(f"\n========== {doc['id']} ==========")
+    print("页码：", doc["page_number"])
+    print("来源：", doc["source"])
+    print(doc["content"])

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from sqlite_retrieval import SQLiteHybridRetriever
+from rag_context import expand_neighbor_chunks
 
 
 # 1. 加载环境变量
@@ -75,6 +76,12 @@ def rag_chat(question: str) -> dict:
         rrf_k=60
     )
 
+    expanded_docs = expand_neighbor_chunks(
+        retrieved_docs,
+        window=2,
+        max_chars=20000
+    )
+
     if not retrieved_docs:
         return {
             "question": question,
@@ -85,7 +92,7 @@ def rag_chat(question: str) -> dict:
     # 5. 将多个 Chunk 整理成 Prompt 上下文
     context_parts = []
 
-    for doc in retrieved_docs:
+    for doc in expanded_docs:
 
         context_parts.append(
             f"[{doc['id']}]\n"
@@ -142,7 +149,7 @@ def rag_chat(question: str) -> dict:
     return {
         "question": question,
         "answer": answer,
-        "retrieved_docs": retrieved_docs
+        "retrieved_docs": expanded_docs
     }
 
 

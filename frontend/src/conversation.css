@@ -1,0 +1,168 @@
+/* ResearchCopilot：固定侧栏、推荐问题自动轮换、空历史自动隐藏。
+   不修改原来的 index.css / documentPage.css。 */
+
+.sidebar {
+  height: 100vh;
+  min-height: 0;
+  position: sticky;
+  top: 0;
+}
+
+/* 当有历史记录时才创建该分区；列表超长只滚动历史，而不滚动推荐问题。 */
+.sidebar-history-section {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.conversation-heading {
+  margin-top: 18px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-refresh {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #b4c6dc;
+  background: transparent;
+}
+.sidebar-refresh:hover:not(:disabled) { background: #2d4869; color: #fff; }
+.sidebar-refresh:disabled { opacity: .45; cursor: not-allowed; }
+
+.sidebar-history {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 3px;
+  scrollbar-color: #49617d transparent;
+  scrollbar-width: thin;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 10px;
+  background: transparent;
+  color: #b9cae0;
+  text-align: left;
+  font-size: 12.5px;
+}
+.history-item svg { flex-shrink: 0; }
+.history-item:hover:not(:disabled) { background: #233955; color: #fff; }
+.history-item.is-active { background: #2a4b61; color: #f0fdfa; }
+.history-item:disabled { cursor: not-allowed; opacity: .55; }
+.history-item-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-item-count { color: #97b0ca; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sidebar-nav-active { background: #26435d; color: #fff; }
+
+/* 推荐区固定只渲染 2 条，定时轮换，不使用滚动容器。 */
+.sidebar-example-heading {
+  margin-top: 16px;
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.sidebar-examples {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 5px;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  animation: recommendation-fade .28s ease-in;
+}
+.sidebar-examples .sidebar-example {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.sidebar-examples .sidebar-example span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@keyframes recommendation-fade {
+  from { opacity: .45; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-examples { animation: none; }
+}
+
+.sidebar-bottom { flex-shrink: 0; margin-top: auto; }
+.sidebar-history-retry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: #acbed3;
+  font-size: 11px;
+  text-align: left;
+}
+.sidebar-history-retry:hover:not(:disabled) { color: #fff; }
+.sidebar-history-retry:disabled { opacity: .5; }
+
+.topbar-main { display: flex; align-items: center; min-width: 0; }
+.topbar-main h1 {
+  max-width: min(58vw, 720px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.evidence-source-meta { font-size: 12px; color: #64748b; margin-bottom: 10px; }
+.conversation-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* 主窗口不设置任何侧栏展开/收起按钮；窄屏采用上下布局显示导航。 */
+@media (max-width: 900px) {
+  .app-layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    display: flex;
+    position: static;
+    height: auto;
+    min-height: 0;
+    width: 100%;
+    padding: 14px 16px;
+  }
+  .brand { margin: 0 0 14px; }
+  .new-chat-button { padding: 10px; }
+  .sidebar-history-section { flex: none; }
+  .sidebar-history { max-height: 144px; }
+  .sidebar-examples { max-height: none; }
+  .sidebar-bottom { display: none; }
+  .topbar-main h1 { max-width: 80vw; }
+  .workspace { height: min(78vh, 820px); min-height: 460px; }
+}
