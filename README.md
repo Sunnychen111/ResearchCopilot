@@ -6,7 +6,7 @@
 
 ### 🌐 在线体验
 
-**[▶ 打开 ResearchCopilot 在线 Demo](https://sunnychen111.github.io/ResearchCopilot/)** · **[查看 React 前端源码](./frontend/)** · **[查看 RAG 后端入口](./api_main.py)**
+**[▶ 打开 ResearchCopilot 在线 Demo](https://sunnychen111.github.io/ResearchCopilot/)** · **[查看 React 前端源码](./frontend/)** · **[查看 RAG 后端入口](./backend/api_main.py)**
 
 ## 🖥️ 界面预览
 
