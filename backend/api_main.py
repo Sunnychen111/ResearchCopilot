@@ -5,10 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from openai import OpenAIError
 
-from rag_sqlite import rag_chat
-from document_api import router as document_router
+from backend.rag_sqlite import rag_chat
+from backend.document_api import router as document_router
 
-from conversation_api import router as conversation_router
+from backend.conversation_api import router as conversation_router
 
 logger = logging.getLogger(__name__)
 

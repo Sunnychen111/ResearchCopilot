@@ -2,7 +2,7 @@
 # check_db.py
 
 from sqlalchemy import text
-from database import engine, DB_PATH
+from backend.database import engine, DB_PATH
 
 print("数据库文件位置：", DB_PATH)
 

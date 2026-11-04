@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
-from database import SessionLocal
-from model import Chunk
+from backend.database import SessionLocal
+from backend.model import Chunk
 
 def expand_neighbor_chunks(
         retrieved_docs: list[dict],

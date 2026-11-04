@@ -1,5 +1,5 @@
 from sqlalchemy import inspect
-from database import engine
+from backend.database import engine
 
 with engine.begin() as conn:
     # 获取数据库中documents表的字段名称

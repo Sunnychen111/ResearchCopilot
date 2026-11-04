@@ -1,4 +1,4 @@
-from rag_context import expand_neighbor_chunks
+from backend.rag_context import expand_neighbor_chunks
 
 # 模拟检索命中 C314
 retrieved_docs = [{

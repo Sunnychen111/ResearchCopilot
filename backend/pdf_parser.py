@@ -11,7 +11,7 @@
 
 import re
 from pathlib import Path
-from markdown_chunker import chunk_markdown
+from backend.markdown_chunker import chunk_markdown
 
 import pymupdf
 import pymupdf4llm

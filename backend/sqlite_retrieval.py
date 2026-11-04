@@ -3,7 +3,7 @@ import jieba
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
-from sqlite_knowledge import load_sqlite_chunks
+from backend.sqlite_knowledge import load_sqlite_chunks
 
 # 让 jieba 尽量保留科研专业术语
 for term in [

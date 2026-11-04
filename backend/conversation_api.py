@@ -5,14 +5,14 @@ from fastapi import APIRouter
 from pydantic import BaseModel,Field
 from sqlalchemy import select,func,inspect
 
-from database import SessionLocal
-from model import Conversation,ChatMessage
+from backend.database import SessionLocal
+from backend.model import Conversation,ChatMessage
 
 from datetime import datetime,timezone
 from fastapi import HTTPException
 from openai import OpenAIError
 
-from rag_sqlite import rag_chat
+from backend.rag_sqlite import rag_chat
 
 
 router = APIRouter(

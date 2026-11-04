@@ -8,8 +8,8 @@ from functools import lru_cache
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from sqlite_retrieval import SQLiteHybridRetriever
-from rag_context import expand_neighbor_chunks
+from backend.sqlite_retrieval import SQLiteHybridRetriever
+from backend.rag_context import expand_neighbor_chunks
 
 
 # 1. 加载环境变量

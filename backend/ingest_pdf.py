@@ -3,9 +3,9 @@ import re
 
 from sqlalchemy import delete,func,select
 
-from database import BASE_DIR, SessionLocal
-from model import Document, Chunk
-from pdf_parser import parse_pdf
+from backend.database import BASE_DIR, SessionLocal
+from backend.model import Document, Chunk
+from backend.pdf_parser import parse_pdf
 
 def ingest_document(document_id: int):
     with SessionLocal() as db:

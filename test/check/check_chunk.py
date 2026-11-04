@@ -1,7 +1,7 @@
 # check_chunks.py
 
 from sqlalchemy import text
-from database import engine
+from backend.database import engine
 
 # 当前上传的论文 ID
 document_id = 1

@@ -6,8 +6,8 @@ import hashlib
 
 from sqlalchemy import select
 
-from database import BASE_DIR, SessionLocal
-from model import Document
+from backend.database import BASE_DIR, SessionLocal
+from backend.model import Document
 
 
 # 保存上传文件的目录

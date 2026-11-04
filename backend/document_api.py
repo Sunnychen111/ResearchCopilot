@@ -10,11 +10,11 @@ from fastapi import APIRouter,File,HTTPException,UploadFile
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from database import BASE_DIR,SessionLocal
-from model import Document
+from backend.database import BASE_DIR,SessionLocal
+from backend.model import Document
 from fastapi import BackgroundTasks
-from ingest_pdf import ingest_document
-from rag_sqlite import refresh_retrieval
+from backend.ingest_pdf import ingest_document
+from backend.rag_sqlite import refresh_retrieval
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 from sqlalchemy import inspect
 
-from database import Base,engine
-from model import Conversation,ChatMessage
+from backend.database import Base,engine
+from backend.model import Conversation,ChatMessage
 
 def init_chat_tables():
     Base.metadata.create_all(

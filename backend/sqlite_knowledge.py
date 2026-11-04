@@ -1,7 +1,7 @@
 from sqlalchemy import select,func
 
-from database import SessionLocal
-from model import Document,Chunk
+from backend.database import SessionLocal
+from backend.model import Document,Chunk
 
 def list_document_status() ->list[dict]:
     with SessionLocal() as db:

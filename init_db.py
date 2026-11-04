@@ -1,8 +1,8 @@
 from sqlalchemy import inspect,text
 
-from database import Base,engine,DB_PATH
+from backend.database import Base,engine,DB_PATH
 
-import model
+import backend.model as model
 
 def init_database():
     print("开始初始化 ReseachCopilot 数据库")
