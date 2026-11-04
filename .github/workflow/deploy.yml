@@ -1,0 +1,68 @@
+
+name: Deploy ResearchCopilot Demo
+
+# 每次推送 main 分支时自动部署
+# 也支持在 GitHub Actions 页面手动运行
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# GitHub Pages 部署所需权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 避免多个部署任务互相冲突
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # 1. 拉取 GitHub 仓库代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 配置 Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # 3. 安装 React 项目依赖
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # 4. 构建静态 Demo
+      - name: Build Demo
+        working-directory: frontend
+        env:
+          VITE_DEMO_MODE: 'true'
+        run: npm run build
+
+      # 5. 配置 GitHub Pages
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # 6. 上传 Vite 构建生成的静态文件
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: frontend/dist
+
+      # 7. 正式部署
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

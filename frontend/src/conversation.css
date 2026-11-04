@@ -34,8 +34,16 @@
   color: #b4c6dc;
   background: transparent;
 }
-.sidebar-refresh:hover:not(:disabled) { background: #2d4869; color: #fff; }
-.sidebar-refresh:disabled { opacity: .45; cursor: not-allowed; }
+
+.sidebar-refresh:hover:not(:disabled) {
+  background: #2d4869;
+  color: #fff;
+}
+
+.sidebar-refresh:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
 
 .sidebar-history {
   min-height: 0;
@@ -60,10 +68,26 @@
   text-align: left;
   font-size: 12.5px;
 }
-.history-item svg { flex-shrink: 0; }
-.history-item:hover:not(:disabled) { background: #233955; color: #fff; }
-.history-item.is-active { background: #2a4b61; color: #f0fdfa; }
-.history-item:disabled { cursor: not-allowed; opacity: .55; }
+
+.history-item svg {
+  flex-shrink: 0;
+}
+
+.history-item:hover:not(:disabled) {
+  background: #233955;
+  color: #fff;
+}
+
+.history-item.is-active {
+  background: #2a4b61;
+  color: #f0fdfa;
+}
+
+.history-item:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 .history-item-title {
   min-width: 0;
   flex: 1;
@@ -71,8 +95,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.history-item-count { color: #97b0ca; font-size: 11px; font-variant-numeric: tabular-nums; }
-.sidebar-nav-active { background: #26435d; color: #fff; }
+
+.history-item-count {
+  color: #97b0ca;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-nav-active {
+  background: #26435d;
+  color: #fff;
+}
 
 /* 推荐区固定只渲染 2 条，定时轮换，不使用滚动容器。 */
 .sidebar-example-heading {
@@ -83,6 +116,7 @@
   justify-content: space-between;
   flex-shrink: 0;
 }
+
 .sidebar-examples {
   display: flex;
   flex-direction: column;
@@ -94,6 +128,7 @@
   overflow: visible;
   animation: recommendation-fade .28s ease-in;
 }
+
 .sidebar-examples .sidebar-example {
   flex: 0 0 auto;
   margin: 0;
@@ -101,19 +136,35 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
 .sidebar-examples .sidebar-example span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
 @keyframes recommendation-fade {
-  from { opacity: .45; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-examples { animation: none; }
+  from {
+    opacity: .45;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.sidebar-bottom { flex-shrink: 0; margin-top: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-examples {
+    animation: none;
+  }
+}
+
+.sidebar-bottom {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
 .sidebar-history-retry {
   display: flex;
   align-items: center;
@@ -126,17 +177,34 @@
   font-size: 11px;
   text-align: left;
 }
-.sidebar-history-retry:hover:not(:disabled) { color: #fff; }
-.sidebar-history-retry:disabled { opacity: .5; }
 
-.topbar-main { display: flex; align-items: center; min-width: 0; }
+.sidebar-history-retry:hover:not(:disabled) {
+  color: #fff;
+}
+
+.sidebar-history-retry:disabled {
+  opacity: .5;
+}
+
+.topbar-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .topbar-main h1 {
   max-width: min(58vw, 720px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.evidence-source-meta { font-size: 12px; color: #64748b; margin-bottom: 10px; }
+
+.evidence-source-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
 .conversation-loading {
   display: flex;
   align-items: center;
@@ -148,7 +216,10 @@
 
 /* 主窗口不设置任何侧栏展开/收起按钮；窄屏采用上下布局显示导航。 */
 @media (max-width: 900px) {
-  .app-layout { grid-template-columns: minmax(0, 1fr); }
+  .app-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .sidebar {
     display: flex;
     position: static;
@@ -157,12 +228,257 @@
     width: 100%;
     padding: 14px 16px;
   }
-  .brand { margin: 0 0 14px; }
-  .new-chat-button { padding: 10px; }
-  .sidebar-history-section { flex: none; }
-  .sidebar-history { max-height: 144px; }
-  .sidebar-examples { max-height: none; }
-  .sidebar-bottom { display: none; }
-  .topbar-main h1 { max-width: 80vw; }
-  .workspace { height: min(78vh, 820px); min-height: 460px; }
+
+  .brand {
+    margin: 0 0 14px;
+  }
+
+  .new-chat-button {
+    padding: 10px;
+  }
+
+  .sidebar-history-section {
+    flex: none;
+  }
+
+  .sidebar-history {
+    max-height: 144px;
+  }
+
+  .sidebar-examples {
+    max-height: none;
+  }
+
+  .sidebar-bottom {
+    display: none;
+  }
+
+  .topbar-main h1 {
+    max-width: 80vw;
+  }
+
+  .workspace {
+    height: min(78vh, 820px);
+    min-height: 460px;
+  }
+}
+
+
+/* ================================
+   检索证据两级折叠优化
+   ================================ */
+
+/* 第一层：整个证据区域 */
+.evidence>.evidence-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  margin-bottom: 0;
+  padding: 6px 0;
+  user-select: none;
+}
+
+/* 移除浏览器默认三角形 */
+.evidence>summary {
+  list-style: none;
+}
+
+.evidence>summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 右侧展开图标 */
+.evidence-toggle {
+  margin-left: auto;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+/* 展开后旋转图标 */
+.evidence[open]>.evidence-heading .evidence-toggle {
+  transform: rotate(180deg);
+}
+
+/* 展开后增加内容间距 */
+.evidence[open]>.evidence-heading {
+  margin-bottom: 12px;
+}
+
+/* 展开证据较多时，限制占用高度 */
+.evidence-items {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* 鼠标悬停时提示可点击 */
+.evidence>.evidence-heading:hover {
+  color: #0d9488;
+}
+
+/* 键盘操作时保留可见焦点 */
+.evidence>.evidence-heading:focus-visible {
+  outline: 2px solid #0d9488;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+
+/* ==================================
+   ResearchCopilot 检索证据折叠组件
+   使用 rc-evidence 前缀，避免旧样式冲突
+   ================================== */
+
+.rc-evidence {
+  margin-top: 24px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
+}
+
+/* 整组证据的展开按钮 */
+.rc-evidence-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #dbe5ed;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.rc-evidence-header:hover {
+  border-color: #0d9488;
+  background: #f0fdfa;
+}
+
+.rc-evidence-header>svg:first-child {
+  color: #0d9488;
+}
+
+.rc-evidence-count {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.rc-evidence-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.rc-evidence-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+/* 展开后的证据列表 */
+.rc-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* 单条 Chunk 卡片 */
+.rc-evidence-card {
+  flex-shrink: 0;
+  border: 1px solid #e1e8f0;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.rc-evidence-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  background: #fff;
+  border: none;
+  color: #334155;
+  text-align: left;
+}
+
+.rc-evidence-item-header:hover {
+  background: #f8fafc;
+}
+
+.rc-evidence-item-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.rc-evidence-id {
+  flex-shrink: 0;
+  padding: 4px 7px;
+  background: #e2f7f1;
+  color: #0f766e;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rc-evidence-filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc-evidence-page {
+  flex-shrink: 0;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* 展开后的原文内容 */
+.rc-evidence-detail {
+  padding: 13px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.rc-evidence-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.rc-evidence-tag {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.rc-evidence-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #475569;
+}
+
+/* 键盘导航 */
+.rc-evidence button:focus-visible {
+  outline: 2px solid #0d9488;
+  outline-offset: 2px;
 }

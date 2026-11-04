@@ -75,61 +75,151 @@ function normalizeMessage(message) {
   }
 }
 
+
 function EvidenceList({ docs }) {
+  // 第一层：控制整个证据列表的展开状态
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 第二层：记录每条 Chunk 是否展开
+  const [openedChunks, setOpenedChunks] = useState({})
+
   if (!docs?.length) return null
 
+  // 单独展开或收起某条 Chunk
+  function toggleChunk(key) {
+    setOpenedChunks((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }))
+  }
+
   return (
-    <div className="evidence">
-      <div className="evidence-heading">
-        <BookOpen size={16} />
-        <span>检索证据</span>
-        <span className="evidence-count">{docs.length} 条</span>
-      </div>
+    <section className="rc-evidence">
 
-      <div className="evidence-items">
-        {docs.map((doc, index) => {
-          const sources = Array.isArray(doc.source)
-            ? doc.source
-            : Array.isArray(doc.sources)
-              ? doc.sources
-              : []
+      {/* 第一层：整组检索证据 */}
+      <button
+        type="button"
+        className="rc-evidence-header"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <BookOpen size={17} />
 
-          return (
-            <details className="evidence-card" key={`${doc.id || index}-${index}`}>
-              <summary>
-                <span className="doc-label">
-                  <span className="doc-id">{doc.id || `文档 ${index + 1}`}</span>
-                  <span className="doc-section">{doc.section || doc.filename || '未命名章节'}</span>
-                </span>
-                <span className="doc-score">
-                  {typeof doc.rrf_score === 'number'
-                    ? `RRF ${doc.rrf_score.toFixed(4)}`
-                    : ''}
-                  <ChevronDown size={15} />
-                </span>
-              </summary>
+        <span>查看检索证据</span>
 
-              <div className="evidence-detail">
-                <div className="source-tags">
-                  {sources.map((source, i) => (
-                    <span key={`${source}-${i}`} className="source-tag">{source}</span>
-                  ))}
-                </div>
-                {(doc.filename || doc.page_number != null) && (
-                  <div className="evidence-source-meta">
-                    {doc.filename || '未知文献'}
-                    {doc.page_number != null ? ` · 第 ${doc.page_number} 页` : ''}
+        <span className="rc-evidence-count">
+          {docs.length} 条
+        </span>
+
+        <ChevronDown
+          size={17}
+          className={
+            isOpen
+              ? 'rc-evidence-chevron rotated'
+              : 'rc-evidence-chevron'
+          }
+        />
+      </button>
+
+      {/* 只有展开时才渲染 Chunk 列表 */}
+      {isOpen && (
+        <div className="rc-evidence-list">
+
+          {docs.map((doc, index) => {
+            const key = `${doc.id || index}-${index}`
+
+            const expanded = Boolean(
+              openedChunks[key]
+            )
+
+            const sources = Array.isArray(doc.source)
+              ? doc.source
+              : Array.isArray(doc.sources)
+                ? doc.sources
+                : []
+
+            return (
+              <article
+                key={key}
+                className="rc-evidence-card"
+              >
+
+                {/* 第二层：单条 Chunk */}
+                <button
+                  type="button"
+                  className="rc-evidence-item-header"
+                  aria-expanded={expanded}
+                  onClick={() => toggleChunk(key)}
+                >
+
+                  <span className="rc-evidence-item-name">
+                    <span className="rc-evidence-id">
+                      {doc.id || `Chunk ${index + 1}`}
+                    </span>
+
+                    <span className="rc-evidence-filename">
+                      {doc.filename ||
+                        doc.section ||
+                        '未知文献'}
+                    </span>
+
+                    {doc.page_number != null && (
+                      <span className="rc-evidence-page">
+                        第 {doc.page_number} 页
+                      </span>
+                    )}
+                  </span>
+
+                  <ChevronDown
+                    size={15}
+                    className={
+                      expanded
+                        ? 'rc-evidence-chevron rotated'
+                        : 'rc-evidence-chevron'
+                    }
+                  />
+                </button>
+
+                {/* 展开后展示当前 Chunk 详情 */}
+                {expanded && (
+                  <div className="rc-evidence-detail">
+
+                    <div className="rc-evidence-tags">
+                      {sources.map((source, i) => (
+                        <span
+                          key={`${source}-${i}`}
+                          className="rc-evidence-tag"
+                        >
+                          {source}
+                        </span>
+                      ))}
+
+                      {typeof doc.rrf_score === 'number' &&
+                        doc.rrf_score > 0 && (
+                          <span className="rc-evidence-tag">
+                            RRF {doc.rrf_score.toFixed(4)}
+                          </span>
+                        )}
+                    </div>
+
+                    <div className="rc-evidence-content">
+                      {doc.content || '暂无文档内容'}
+                    </div>
+
                   </div>
                 )}
-                <div className="evidence-content">{doc.content || '暂无文档内容'}</div>
-              </div>
-            </details>
-          )
-        })}
-      </div>
-    </div>
+
+              </article>
+            )
+          })}
+
+        </div>
+      )}
+
+    </section>
   )
 }
+
 
 function App() {
   // 原有聊天与页面状态
@@ -415,7 +505,7 @@ function App() {
           onClick={() => {
             if (sendingRef.current) return
             setActivePage('documents')
-                  }}
+          }}
           disabled={loading}
         >
           <Database size={18} />
@@ -444,9 +534,8 @@ function App() {
                   key={item.id}
                   type="button"
                   title={item.title}
-                  className={`history-item ${
-                    activePage === 'chat' && activeConversationId === item.id ? 'is-active' : ''
-                  }`}
+                  className={`history-item ${activePage === 'chat' && activeConversationId === item.id ? 'is-active' : ''
+                    }`}
                   onClick={() => selectConversation(item.id)}
                   disabled={loading || detailLoading}
                 >
