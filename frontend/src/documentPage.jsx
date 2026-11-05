@@ -1,5 +1,6 @@
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
 import {
     Upload,
     RefreshCw,
@@ -9,9 +10,14 @@ import {
 
 import './documentPage.css'
 
+// FastAPI 后端地址
 const API_BASE = 'http://127.0.0.1:8000'
 
-// 将数据库中的状态转换为中文
+// ==========================================
+// 1. 通用工具函数
+// ==========================================
+
+// 数据库处理状态转中文
 const STATUS_LABELS = {
     uploaded: '等待解析',
     processing: '解析中',
@@ -20,54 +26,235 @@ const STATUS_LABELS = {
     failed: '解析失败',
 }
 
-// 文件大小转换为 MB
+// 获取有效文本，避免 null、undefined 和空字符串
+function getText(value) {
+    if (typeof value !== 'string') {
+        return null
+    }
+
+    return value.trim() || null
+}
+
+// 格式化 PDF 文件大小
 function formatSize(bytes) {
-    if (bytes == null) return '—'
+    if (bytes == null) {
+        return '—'
+    }
 
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
-// 时间格式化
+// 格式化数据库上传时间
 function formatTime(value) {
-    if (!value) return '—'
+    if (!value) {
+        return '—'
+    }
 
-    return String(value).replace('T', ' ').slice(0, 16)
+    return String(value)
+        .replace('T', ' ')
+        .slice(0, 16)
 }
+
+// 格式化论文等级
+// 例如：rank_system="CCF", rank_value="A"
+// 最终显示：CCF · A
+function formatRank(doc) {
+
+    const system = getText(doc.rank_system)
+    const value = getText(doc.rank_value)
+
+    if (!system && !value) {
+        return null
+    }
+
+    return [system, value]
+        .filter(Boolean)
+        .join(' · ')
+}
+
+// 作者没有识别出来时，显示对应的提示
+function getAuthorsPlaceholder(status) {
+
+    if (
+        status === 'uploaded' ||
+        status === 'processing'
+    ) {
+        return '正在等待作者信息提取...'
+    }
+
+    if (status === 'failed') {
+        return '作者信息未能识别'
+    }
+
+    return '暂无作者信息'
+}
+
+
+// ==========================================
+// 2. 文献库主组件
+// ==========================================
 
 export default function DocumentsPage() {
 
-    // 1. 数据库中的文献列表
+    // --------------------------------------
+    // 文献数据
+    // --------------------------------------
+
     const [documents, setDocuments] = useState([])
 
-    // 2. 页面与上传状态
+    // --------------------------------------
+    // 页面状态
+    // --------------------------------------
+
     const [loading, setLoading] = useState(true)
     const [uploading, setUploading] = useState(false)
 
-    // 3. 错误提示和成功提示
+    // --------------------------------------
+    // 消息和错误提示
+    // --------------------------------------
+
     const [listError, setListError] = useState('')
     const [uploadError, setUploadError] = useState('')
     const [message, setMessage] = useState('')
 
-    // 修改此值可以立即触发列表刷新
+    // 自动恢复任务的提示
+    const [recoveryMessage, setRecoveryMessage] = useState('')
+
+    // 是否正在检查未完成论文
+    const [checkingRecovery, setCheckingRecovery] = useState(false)
+
+    // --------------------------------------
+    // 手动刷新控制
+    // --------------------------------------
+
     const [refreshVersion, setRefreshVersion] = useState(0)
 
+    // --------------------------------------
+    // 防止 React StrictMode 重复触发恢复检查
+    // --------------------------------------
+
+    const recoveryTriggered = useRef(false)
+
+
     // ======================================
-    // 4. 读取数据库 + 实时轮询
+    // 3. 页面打开时自动恢复未完成论文
     // ======================================
 
     useEffect(() => {
 
-        // 防止组件卸载后继续更新状态
+        // 只在本次页面挂载时触发一次
+        // 不跟随 3 秒轮询重复执行
+        if (recoveryTriggered.current) {
+            return
+        }
+
+        recoveryTriggered.current = true
+
+        async function checkUnfinishedDocuments() {
+
+            setCheckingRecovery(true)
+
+            try {
+
+                // 请求后端检查尚未完成解析的文献
+                const response = await fetch(
+                    `${API_BASE}/api/documents/recover`,
+                    {
+                        method: 'POST',
+                    }
+                )
+
+                const data = await response
+                    .json()
+                    .catch(() => null)
+
+                if (!response.ok) {
+
+                    const detail =
+                        typeof data?.detail === 'string'
+                            ? data.detail
+                            : `HTTP ${response.status}`
+
+                    throw new Error(detail)
+                }
+
+                // 情况 1：发现未完成论文并提交恢复任务
+                if (data.started && data.queued > 0) {
+
+                    setRecoveryMessage(
+                        `检测到 ${data.queued} 篇未完成解析的论文，`
+                        + '已提交后台恢复任务。'
+                    )
+
+                }
+
+                // 情况 2：已有一批恢复任务正在执行
+                else if (
+                    data.message?.includes('正在执行')
+                ) {
+
+                    setRecoveryMessage(
+                        '文献恢复任务正在后台执行，'
+                        + '列表会自动更新解析状态。'
+                    )
+
+                }
+
+                // 情况 3：所有论文都正常
+                else {
+
+                    setRecoveryMessage('')
+                }
+
+                // 检查结束后立即刷新文献列表
+                setRefreshVersion(
+                    (old) => old + 1
+                )
+
+            } catch (error) {
+
+                console.error(
+                    '自动恢复检查失败：',
+                    error
+                )
+
+                // 恢复检查失败不会影响文献列表的正常展示
+                setRecoveryMessage(
+                    `自动恢复检查失败：${error.message}`
+                )
+
+            } finally {
+
+                setCheckingRecovery(false)
+            }
+        }
+
+        checkUnfinishedDocuments()
+
+    }, [])
+
+
+    // ======================================
+    // 4. 获取数据库文献列表 + 3秒轮询
+    // ======================================
+
+    useEffect(() => {
+
+        // 防止组件卸载后继续更新数据
         let stopped = false
 
-        // 避免上一次查询尚未完成时重复发送请求
+        // 保存当前正在执行的请求
         let activeRequest = null
 
         async function loadDocuments() {
 
-            if (activeRequest) return
+            // 不重复发起相同的请求
+            if (activeRequest) {
+                return
+            }
 
             const controller = new AbortController()
+
             activeRequest = controller
 
             try {
@@ -89,18 +276,25 @@ export default function DocumentsPage() {
                 const data = await response.json()
 
                 if (!Array.isArray(data)) {
-                    throw new Error('接口未返回文献列表')
+                    throw new Error(
+                        '后端接口没有返回文献列表'
+                    )
                 }
 
                 if (!stopped) {
+
                     setDocuments(data)
+
                     setListError('')
                 }
 
-            } catch (err) {
+            } catch (error) {
 
-                if (!stopped && err.name !== 'AbortError') {
-                    setListError(err.message)
+                if (
+                    !stopped &&
+                    error.name !== 'AbortError'
+                ) {
+                    setListError(error.message)
                 }
 
             } finally {
@@ -113,16 +307,22 @@ export default function DocumentsPage() {
             }
         }
 
-        // 页面打开时立即加载一次
+        // 第一次进入页面立即加载文献
         loadDocuments()
 
-        // 每 3 秒重新读取一次数据库
-        const timer = setInterval(loadDocuments, 3000)
+        // 每 3 秒重新读取一次 SQLite 中的文献状态
+        const timer = setInterval(
+            loadDocuments,
+            3000
+        )
 
-        // 组件卸载时释放定时器和网络请求
+        // 组件卸载时清理请求与定时器
         return () => {
+
             stopped = true
+
             clearInterval(timer)
+
             activeRequest?.abort()
         }
 
@@ -138,23 +338,33 @@ export default function DocumentsPage() {
         // 获取用户选择的文件
         const file = event.target.files?.[0]
 
-        // 允许用户再次选择同一个文件
+        // 允许下次选择相同的 PDF
         event.target.value = ''
 
-        if (!file) return
+        if (!file) {
+            return
+        }
 
         setUploadError('')
         setMessage('')
 
-        // PDF 类型检查
+        // PDF 扩展名检查
         if (!file.name.toLowerCase().endsWith('.pdf')) {
-            setUploadError('只能上传 PDF 文件')
+
+            setUploadError(
+                '只能上传 PDF 文件'
+            )
+
             return
         }
 
-        // 与后端保持相同的 20MB 限制
+        // 20MB 文件大小限制
         if (file.size > 20 * 1024 * 1024) {
-            setUploadError('PDF 文件不能超过 20MB')
+
+            setUploadError(
+                'PDF 文件不能超过 20 MB'
+            )
+
             return
         }
 
@@ -162,10 +372,9 @@ export default function DocumentsPage() {
 
         try {
 
-            // FormData 用于发送二进制文件
             const formData = new FormData()
 
-            // "file" 必须与 FastAPI 参数名一致
+            // 与 FastAPI 的 file 参数保持一致
             formData.append('file', file)
 
             const response = await fetch(
@@ -176,9 +385,9 @@ export default function DocumentsPage() {
                 }
             )
 
-            const data = await response.json().catch(
-                () => null
-            )
+            const data = await response
+                .json()
+                .catch(() => null)
 
             if (!response.ok) {
 
@@ -189,19 +398,21 @@ export default function DocumentsPage() {
                 )
             }
 
-            // 这里仅代表上传成功
-            // PDF 解析由后端异步执行
+            // 上传成功不代表后台已经解析完成
             setMessage(
-                `${data.filename} 上传成功，正在等待解析`
+                `${data.filename || file.name} `
+                + '上传成功，正在等待后台解析。'
             )
 
-            // 立即刷新列表，不必等待下一次轮询
-            setRefreshVersion((old) => old + 1)
+            // 上传成功后立即刷新列表
+            setRefreshVersion(
+                (old) => old + 1
+            )
 
-        } catch (err) {
+        } catch (error) {
 
             setUploadError(
-                err.message || '上传发生未知错误'
+                error.message || '上传发生未知错误'
             )
 
         } finally {
@@ -212,32 +423,45 @@ export default function DocumentsPage() {
 
 
     // ======================================
-    // 6. 计算文献统计
+    // 6. 文献统计
     // ======================================
 
+    // 已完成 PDF 解析的文献
     const parsedCount = documents.filter(
         (doc) =>
             doc.status === 'parsed' ||
             doc.status === 'ready'
     ).length
 
+    // 正在处理或等待处理的文献
     const processingCount = documents.filter(
         (doc) =>
             doc.status === 'uploaded' ||
             doc.status === 'processing'
     ).length
 
+    // 解析失败的文献
+    const failedCount = documents.filter(
+        (doc) => doc.status === 'failed'
+    ).length
+
 
     // ======================================
-    // 7. 渲染界面
+    // 7. 渲染页面
     // ======================================
 
     return (
+
         <section className="library-page">
+
+            {/* ==================================
+                顶部：标题 + 上传按钮
+               ================================== */}
 
             <div className="library-header">
 
                 <div>
+
                     <span className="library-kicker">
                         DOCUMENT LIBRARY
                     </span>
@@ -245,11 +469,13 @@ export default function DocumentsPage() {
                     <h1>我的文献库</h1>
 
                     <p>
-                        上传 PDF，自动解析并保存到科研知识库。
+                        管理科研论文，自动提取标题与作者，
+                        支持未完成文献自动恢复解析。
                     </p>
+
                 </div>
 
-                {/* 隐藏 input，点击标签即可选择文件 */}
+                {/* PDF 上传入口 */}
                 <label
                     className={
                         uploading
@@ -257,6 +483,7 @@ export default function DocumentsPage() {
                             : 'library-upload'
                     }
                 >
+
                     <Upload size={17} />
 
                     {uploading ? '上传中...' : '上传 PDF'}
@@ -268,141 +495,377 @@ export default function DocumentsPage() {
                         disabled={uploading}
                         hidden
                     />
+
                 </label>
 
             </div>
 
 
+            {/* ==================================
+                操作结果与提示信息
+               ================================== */}
+
             {message && (
+
                 <div className="library-message">
                     {message}
                 </div>
+
             )}
 
             {uploadError && (
+
                 <div className="library-error">
                     {uploadError}
                 </div>
+
             )}
 
             {listError && (
+
                 <div className="library-error">
                     文献列表更新失败：{listError}
                 </div>
+
+            )}
+
+            {/* 自动恢复检查中 */}
+            {checkingRecovery && (
+
+                <div className="library-message">
+                    正在检查是否有未完成解析的论文...
+                </div>
+
+            )}
+
+            {/* 自动恢复检查结果 */}
+            {!checkingRecovery && recoveryMessage && (
+
+                <div className="library-message">
+                    {recoveryMessage}
+                </div>
+
             )}
 
 
-            {/* 文献统计 */}
+            {/* ==================================
+                文献数量统计
+               ================================== */}
+
             <div className="library-stats">
 
                 <div className="library-stat">
+
                     <Database size={20} />
+
                     <span>全部文献</span>
-                    <strong>{documents.length}</strong>
+
+                    <strong>
+                        {documents.length}
+                    </strong>
+
                 </div>
 
                 <div className="library-stat">
+
                     <FileText size={20} />
+
                     <span>已解析</span>
-                    <strong>{parsedCount}</strong>
+
+                    <strong>
+                        {parsedCount}
+                    </strong>
+
                 </div>
 
                 <div className="library-stat">
+
                     <RefreshCw size={20} />
+
                     <span>处理中</span>
-                    <strong>{processingCount}</strong>
+
+                    <strong>
+                        {processingCount}
+                    </strong>
+
+                    {failedCount > 0 && (
+                        <small
+                            style={{
+                                color: '#be123c',
+                                fontSize: '11px',
+                            }}
+                        >
+                            {failedCount} 篇解析失败
+                        </small>
+                    )}
+
                 </div>
 
             </div>
 
 
+            {/* ==================================
+                文献列表工具栏
+               ================================== */}
+
             <div className="library-toolbar">
 
-                <strong>文献列表</strong>
+                <strong>
+                    文献列表
+                </strong>
 
                 <button
                     type="button"
                     onClick={() => {
-                        setRefreshVersion((old) => old + 1)
+                        // 仅刷新列表，不重新触发恢复任务
+                        setRefreshVersion(
+                            (old) => old + 1
+                        )
                     }}
                 >
+
                     <RefreshCw size={15} />
+
                     立即刷新
+
                 </button>
 
             </div>
 
 
-            {/* 数据库文献表 */}
+            {/* ==================================
+                文献数据表格
+               ================================== */}
+
             <div className="library-table-wrap">
 
                 <table className="library-table">
 
                     <thead>
+
                         <tr>
-                            <th>PDF 文件名</th>
-                            <th>页数</th>
-                            <th>文件大小</th>
+                            <th>论文信息</th>
+                            <th>发表来源</th>
+                            <th>论文等级</th>
+                            <th>PDF 信息</th>
                             <th>解析状态</th>
                             <th>上传时间</th>
                         </tr>
+
                     </thead>
 
                     <tbody>
 
+                        {/* 加载状态 */}
                         {loading ? (
 
                             <tr>
-                                <td colSpan={5}>
+                                <td colSpan={6}>
                                     正在读取文献数据库...
                                 </td>
                             </tr>
 
                         ) : documents.length === 0 ? (
 
+                            /* 数据库没有论文 */
                             <tr>
-                                <td colSpan={5}>
-                                    暂无文献，请先上传 PDF
+                                <td colSpan={6}>
+                                    暂无文献，请先上传 PDF。
                                 </td>
                             </tr>
 
                         ) : (
 
-                            documents.map((doc) => (
+                            /* 展示数据库中的全部论文 */
+                            documents.map((doc) => {
 
-                                <tr key={doc.id}>
+                                // 读取数据库元数据
+                                const title = getText(doc.title)
 
-                                    <td>
-                                        <div className="library-filename">
-                                            <FileText size={17} />
-                                            <span>{doc.filename}</span>
-                                        </div>
-                                    </td>
+                                const authors = getText(doc.authors)
 
-                                    <td>{doc.page_count ?? '—'}</td>
+                                const venue = getText(doc.venue)
 
-                                    <td>
-                                        {formatSize(doc.file_size)}
-                                    </td>
+                                const rank = formatRank(doc)
 
-                                    <td>
-                                        <span
-                                            className={
-                                                `library-status status-${doc.status}`
-                                            }
-                                        >
-                                            {STATUS_LABELS[doc.status] ||
-                                                doc.status}
-                                        </span>
-                                    </td>
+                                // 标题识别失败时，使用 PDF 文件名
+                                const displayTitle =
+                                    title ||
+                                    doc.filename ||
+                                    '未命名文献'
 
-                                    <td>
-                                        {formatTime(doc.created_at)}
-                                    </td>
+                                return (
 
-                                </tr>
+                                    <tr key={doc.id}>
 
-                            ))
+                                        {/* =====================
+                                            标题、作者、PDF 文件名
+                                           ===================== */}
+
+                                        <td className="library-paper-cell">
+
+                                            <div className="library-paper">
+
+                                                <div className="library-paper-icon">
+
+                                                    <FileText size={19} />
+
+                                                </div>
+
+                                                <div className="library-paper-content">
+
+                                                    {/* 论文标题 */}
+                                                    <div
+                                                        className={
+                                                            title
+                                                                ? 'library-paper-title'
+                                                                : 'library-paper-title is-fallback'
+                                                        }
+                                                        title={displayTitle}
+                                                    >
+
+                                                        {displayTitle}
+
+                                                    </div>
+
+                                                    {/* 作者信息 */}
+                                                    <div className="library-paper-authors">
+
+                                                        {authors ||
+                                                            getAuthorsPlaceholder(
+                                                                doc.status
+                                                            )}
+
+                                                    </div>
+
+                                                    {/* 原始 PDF 文件名 */}
+                                                    <div className="library-paper-filename">
+
+                                                        {title
+                                                            ? `PDF · ${doc.filename || '未命名文件'}`
+                                                            : '尚未获取论文正式标题'}
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                        </td>
+
+
+                                        {/* =====================
+                                            会议 / 期刊
+                                           ===================== */}
+
+                                        <td>
+
+                                            {venue ? (
+
+                                                <span className="library-venue">
+                                                    {venue}
+                                                </span>
+
+                                            ) : (
+
+                                                <span className="library-muted">
+                                                    未填写
+                                                </span>
+
+                                            )}
+
+                                        </td>
+
+
+                                        {/* =====================
+                                            CCF / 中科院等级
+                                           ===================== */}
+
+                                        <td>
+
+                                            {rank ? (
+
+                                                <span className="library-rank">
+                                                    {rank}
+                                                </span>
+
+                                            ) : (
+
+                                                <span className="library-muted">
+                                                    未评级
+                                                </span>
+
+                                            )}
+
+                                        </td>
+
+
+                                        {/* =====================
+                                            PDF 页数和大小
+                                           ===================== */}
+
+                                        <td>
+
+                                            <div className="library-file-meta">
+
+                                                <span>
+
+                                                    {doc.page_count != null
+                                                        ? `${doc.page_count} 页`
+                                                        : '页数未知'}
+
+                                                </span>
+
+                                                <span className="library-muted">
+
+                                                    {formatSize(
+                                                        doc.file_size
+                                                    )}
+
+                                                </span>
+
+                                            </div>
+
+                                        </td>
+
+
+                                        {/* =====================
+                                            PDF 解析状态
+                                           ===================== */}
+
+                                        <td>
+
+                                            <span
+                                                className={
+                                                    `library-status status-${doc.status}`
+                                                }
+                                            >
+
+                                                {STATUS_LABELS[doc.status] ||
+                                                    doc.status ||
+                                                    '未知状态'}
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {/* =====================
+                                            上传日期
+                                           ===================== */}
+
+                                        <td className="library-date">
+
+                                            {formatTime(
+                                                doc.created_at
+                                            )}
+
+                                        </td>
+
+                                    </tr>
+
+                                )
+                            })
 
                         )}
 
@@ -412,9 +875,17 @@ export default function DocumentsPage() {
 
             </div>
 
+
+            {/* ==================================
+                底部说明
+               ================================== */}
+
             <p className="library-note">
+
+                页面打开时自动检查未完成的文献解析任务。
                 文献列表每 3 秒自动刷新。
-                “已解析”表示 PDF 已完成文本入库。
+                已完成解析的论文不会重复处理。
+
             </p>
 
         </section>

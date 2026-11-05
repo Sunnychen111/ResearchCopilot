@@ -79,6 +79,31 @@ class Document(Base):
         nullable = False
     )
 
+    title:Mapped[str|None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    authors:Mapped[str|None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    venue:Mapped[str|None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+    rank_system:Mapped[str|None] = mapped_column(
+        String(50),
+        nullable=True
+    )
+
+    rank_value:Mapped[str|None] = mapped_column(
+        String(50),
+        nullable=True
+    )
+
     # 创建时间 自动生成
     created_at : Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -11,18 +11,57 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from backend.database import BASE_DIR,SessionLocal
-from backend.model import Document
+from backend.model import Document,Chunk
 from fastapi import BackgroundTasks
 from backend.ingest_pdf import ingest_document
 from backend.rag_sqlite import refresh_retrieval
+from backend.paper_metadata_db import save_paper_metadata
+from threading import Lock
 
 logger = logging.getLogger(__name__)
+_parse_lock = Lock()
+_recovery_lock = Lock()
 
 # 创建独立路由
 router = APIRouter(
     prefix="/api/documents",
     tags=["文献(PDF)管理"]
 )
+
+def needs_reparse(db, document: Document) -> bool:
+    """
+    判断一篇论文是否需要重新解析。
+
+    判断规则：
+    1. uploaded / processing / failed：需要恢复
+    2. parsed / ready：检查是否存在 Chunk
+    3. 正常完成的论文：跳过
+
+    注意：
+    作者为空不代表解析失败，例如匿名审稿论文。
+    """
+
+    if document.status in {
+        "uploaded",
+        "processing",
+        "failed",
+    }:
+        return True
+
+    if document.status in {"parsed", "ready"}:
+
+        # 只查询一条 Chunk，避免读取全部正文
+        chunk_id = db.scalar(
+            select(Chunk.id)
+            .where(Chunk.document_id == document.id)
+            .limit(1)
+        )
+
+        # 声称解析完成，但数据库没有 Chunk
+        return chunk_id is None
+
+    return False
+
 
 # PDF 保存目录
 Upload_DIR = BASE_DIR / "uploads"
@@ -189,6 +228,11 @@ def list_documents():
             "file_size":document.file_size,
             "page_count":document.page_count,
             "status":document.status,
+            "title": document.title,
+            "authors": document.authors,
+            "venue": document.venue,
+            "rank_system": document.rank_system,
+            "rank_value": document.rank_value,
             "created_at":(
                 document.created_at.isoformat()
                 if document.created_at else None
@@ -197,22 +241,177 @@ def list_documents():
         for document in documents
     ]
 
-def process_document_background(document_id:int):
+
+def process_document_background(document_id: int) -> bool:
+    """
+    执行一篇论文的后台解析。
+
+    上传新论文和自动恢复任务统一调用这里。
+
+    返回：
+        True：成功重新解析
+        False：无需解析或解析失败
+    """
+
+    # 任务锁：避免并发解析造成 Chunk 重复删除和写入
+    with _parse_lock:
+
+        # 在真正执行之前，再检查一次数据库
+        with SessionLocal() as db:
+
+            document = db.get(Document, document_id)
+
+            if document is None:
+                logger.warning(
+                    "论文不存在：ID=%s",
+                    document_id
+                )
+                return False
+
+            # 例如用户刚上传的论文已经由另一个任务解析完毕
+            if not needs_reparse(db, document):
+                logger.info(
+                    "论文已完成解析，跳过：ID=%s",
+                    document_id
+                )
+                return False
+
+        try:
+            logger.info(
+                "开始解析或恢复论文：ID=%s",
+                document_id
+            )
+
+            # 复用现有 PDF -> Chunk 入库流程
+            ingest_document(document_id)
+
+            # 如果你之前在这个函数中调用了
+            # save_paper_metadata(document_id)，
+            # 请在这里保留那一步。
+            #
+            # 如果元数据已经在 ingest_document()
+            # 内部保存，就不必重复调用。
+
+            # 解析完成后刷新 RAG 检索索引
+            refresh_retrieval()
+
+            logger.info(
+                "论文解析完成：ID=%s",
+                document_id
+            )
+
+            return True
+
+        except Exception:
+            logger.exception(
+                "论文解析失败：ID=%s",
+                document_id
+            )
+            return False
+
+def recover_documents_worker(document_ids: list[int]):
+    """
+    后台逐篇恢复未完成的 PDF。
+
+    单篇失败不会阻止其他文献恢复。
+    """
+
     try:
+        total = len(document_ids)
+        success = 0
+
+        for index, document_id in enumerate(
+            document_ids,
+            start=1
+        ):
+
+            logger.info(
+                "恢复进度 %s/%s，论文 ID=%s",
+                index,
+                total,
+                document_id
+            )
+
+            if process_document_background(document_id):
+                success += 1
+
         logger.info(
-            "开始后台解析论文，ID=%s",
-            document_id
+            "文献自动恢复结束：成功 %s/%s",
+            success,
+            total
         )
 
-        ingest_document(document_id)
+    finally:
+        # 无论成功还是失败，都释放批量恢复锁
+        _recovery_lock.release()
+
+
+@router.post("/recover")
+def recover_unfinished_documents(
+    background_tasks: BackgroundTasks
+):
+    """
+    打开文献库时调用。
+
+    立即检查未完成文献，交给后台恢复，
+    不要求浏览器等待实际 PDF 解析结束。
+    """
+
+    # 已有恢复任务时，不再创建第二批
+    if not _recovery_lock.acquire(blocking=False):
+        return {
+            "started": False,
+            "queued": 0,
+            "message": "已有文献恢复任务正在执行"
+        }
+
+    try:
+        with SessionLocal() as db:
+
+            documents = db.scalars(
+                select(Document)
+                .order_by(Document.id.asc())
+            ).all()
+
+            pending_ids = [
+                document.id
+                for document in documents
+                if needs_reparse(db, document)
+            ]
+
+        # 全部正常，无需执行后台任务
+        if not pending_ids:
+            _recovery_lock.release()
+
+            return {
+                "started": False,
+                "queued": 0,
+                "message": "所有论文均已完成解析"
+            }
+
+        # 把耗时任务交给 FastAPI 后台执行
+        background_tasks.add_task(
+            recover_documents_worker,
+            pending_ids
+        )
 
         logger.info(
-            "论文解析完成"
+            "检测到 %s 篇未完成文献：%s",
+            len(pending_ids),
+            pending_ids
         )
-        refresh_retrieval()
+
+        return {
+            "started": True,
+            "queued": len(pending_ids),
+            "document_ids": pending_ids,
+            "message": "已提交后台恢复任务"
+        }
 
     except Exception:
-        logger.exception(
-            "后台 PDF 解析失败，ID=%s",
-            document_id
+        _recovery_lock.release()
+        logger.exception("文献恢复检查失败")
+        raise HTTPException(
+            status_code=500,
+            detail="检查未完成文献失败"
         )

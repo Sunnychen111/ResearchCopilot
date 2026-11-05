@@ -233,3 +233,165 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ==========================================
+   文献库：论文元数据显示
+   ========================================== */
+
+/* 为新增列提供足够空间，小屏幕允许横向滚动 */
+.library-table {
+    min-width: 1100px;
+}
+
+.library-table th:first-child {
+    width: 40%;
+}
+
+/* 让多行论文信息从单元格顶部开始 */
+.library-table td {
+    vertical-align: top;
+}
+
+/* 论文信息单元格 */
+.library-paper-cell {
+    min-width: 340px;
+}
+
+.library-paper {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+/* PDF 图标 */
+.library-paper-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: #e8f7f4;
+    color: #0d9488;
+}
+
+/* 标题、作者、文件名的内容区域 */
+.library-paper-content {
+    min-width: 0;
+    flex: 1;
+}
+
+/* 论文正式标题 */
+.library-paper-title {
+    color: #14233c;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+
+    /* 长标题最多显示三行 */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+/* 标题未识别时使用文件名 */
+.library-paper-title.is-fallback {
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* 作者名称 */
+.library-paper-authors {
+    margin-top: 7px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+/* 原始 PDF 文件名 */
+.library-paper-filename {
+    margin-top: 8px;
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+/* 会议或期刊 */
+.library-venue {
+    display: inline-block;
+    max-width: 180px;
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+/* CCF / CAS 等级 */
+.library-rank {
+    display: inline-block;
+    padding: 5px 9px;
+    border: 1px solid #dbe3ed;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+/* 暂无数据 */
+.library-muted {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+/* PDF 页数、文件大小 */
+.library-file-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+/* 上传日期不换行 */
+.library-date {
+    white-space: nowrap;
+    color: #64748b;
+    font-size: 12px;
+}
+
+/* 表格悬停效果 */
+.library-table tbody tr:hover {
+    background: #f8fbfd;
+}
+
+/* 表格最后一行不显示多余分割线 */
+.library-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* 小屏幕适配 */
+@media (max-width: 800px) {
+    .library-table-wrap {
+        overflow-x: auto;
+    }
+
+    .library-paper-cell {
+        min-width: 290px;
+    }
+}
+

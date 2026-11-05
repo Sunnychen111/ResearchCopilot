@@ -6,6 +6,7 @@ from sqlalchemy import delete,func,select
 from backend.database import BASE_DIR, SessionLocal
 from backend.model import Document, Chunk
 from backend.pdf_parser import parse_pdf
+from backend.paper_metadata import extract_paper_metadata
 
 def ingest_document(document_id: int):
     with SessionLocal() as db:
@@ -59,6 +60,34 @@ def ingest_document(document_id: int):
 
             # 7. 批量添加 Chunk
             db.add_all(chunk_objects)
+
+            need_title = not (document.title or "").strip()
+            need_authors = not(document.title or "").strip()
+
+            if need_title or need_authors:
+                try:
+                    paper_info = extract_paper_metadata(
+                        pdf_path
+                    )
+
+                    if need_title and paper_info.get("title"):
+                        document.title = paper_info["title"]
+
+                    if need_title and paper_info.get("authors"):
+                        document.title = paper_info["authors"]
+
+                    print(
+                        "识别标题：",
+                        document.title or "未识别"
+                    )
+
+                    print(
+                        "识别作者",
+                        document.authors or "未识别"
+                    )
+
+                except Exception as exc:
+                    print(f"论文元数据提取失败{exc}")
 
             document.status = "parsed"
             db.commit()
