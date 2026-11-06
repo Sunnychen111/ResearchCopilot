@@ -11,6 +11,7 @@ INVALID_TITLE_PATTERNS = (
     r"^(?:microsoft word|untitled|latex|adobe|acrobat)",
     r"^(?:arxiv|proceedings of|the ieee|ieee/cvf conference)",
     r"^(?:preprint|accepted by|copyright|open access)",
+    r"^(?:Neurocomputing)"
 )
 
 def clean(value):

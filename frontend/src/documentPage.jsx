@@ -738,14 +738,14 @@ export default function DocumentsPage() {
 
                                                     </div>
 
-                                                    {/* 原始 PDF 文件名 */}
+                                                    {/* 原始 PDF 文件名
                                                     <div className="library-paper-filename">
 
                                                         {title
                                                             ? `PDF · ${doc.filename || '未命名文件'}`
                                                             : '尚未获取论文正式标题'}
 
-                                                    </div>
+                                                    </div> */}
 
                                                 </div>
 

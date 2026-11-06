@@ -62,7 +62,7 @@ def ingest_document(document_id: int):
             db.add_all(chunk_objects)
 
             need_title = not (document.title or "").strip()
-            need_authors = not(document.title or "").strip()
+            need_authors = not(document.authors or "").strip()
 
             if need_title or need_authors:
                 try:
@@ -73,8 +73,8 @@ def ingest_document(document_id: int):
                     if need_title and paper_info.get("title"):
                         document.title = paper_info["title"]
 
-                    if need_title and paper_info.get("authors"):
-                        document.title = paper_info["authors"]
+                    if need_authors and paper_info.get("authors"):
+                        document.authors = paper_info["authors"]
 
                     print(
                         "识别标题：",
