@@ -14,9 +14,10 @@ from backend.database import BASE_DIR,SessionLocal
 from backend.model import Document,Chunk
 from fastapi import BackgroundTasks
 from backend.ingest_pdf import ingest_document
-from backend.rag_sqlite import refresh_retrieval
+from backend.rag_sqlite import refresh_retrieval,get_retriever
 from backend.paper_metadata_db import save_paper_metadata
 from threading import Lock
+from pydantic import BaseModel,Field
 
 logger = logging.getLogger(__name__)
 _parse_lock = Lock()
@@ -27,6 +28,22 @@ router = APIRouter(
     prefix="/api/documents",
     tags=["文献(PDF)管理"]
 )
+
+class PublicationUpdate(BaseModel):
+    venue: str|None =Field(
+        default = None,
+        max_length = 255
+    )
+
+    rank_system:str |None = Field(
+        default = None,
+        max_length = 50
+    )
+
+    rank_value:str |None =Field(
+        default=None,
+        max_length = 50
+    )
 
 def needs_reparse(db, document: Document) -> bool:
     """
@@ -415,3 +432,294 @@ def recover_unfinished_documents(
             status_code=500,
             detail="检查未完成文献失败"
         )
+
+def empty_to_none(value:str|None)->str|None:
+    if value is None:
+        return None
+    
+    return value.strip() or None
+
+
+
+
+@router.patch("/{document_id}/publication")
+def update_publication(
+    document_id: int,
+    payload: PublicationUpdate
+):
+    """
+    更新论文发表来源和分级。
+
+    只修改：
+    venue
+    rank_system
+    rank_value
+
+    不修改 PDF、Chunk 和标题作者。
+    """
+
+    # 1. 获取用户实际提交的字段
+    changes = {
+        name: empty_to_none(value)
+        for name, value in payload.model_dump(
+            exclude_unset=True
+        ).items()
+    }
+
+    # 2. 避免与解析任务同时修改数据库记录
+    with _parse_lock:
+
+        # 3. 打开数据库会话
+        # 后续查询、修改和 commit 都必须在这里面
+        with SessionLocal() as db:
+
+            document = db.get(
+                Document,
+                document_id
+            )
+
+            if document is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="论文不存在"
+                )
+
+            # 4. 计算本次更新后的字段值
+            # 没有提交的字段保留原值
+            new_venue = changes.get(
+                "venue",
+                document.venue
+            )
+
+            new_system = changes.get(
+                "rank_system",
+                document.rank_system
+            )
+
+            new_value = changes.get(
+                "rank_value",
+                document.rank_value
+            )
+
+            # 5. 定义合法评价体系
+            valid_grades = {
+                "CCF": {"A", "B", "C"},
+                "CAS": {"1区", "2区", "3区", "4区"},
+            }
+
+            # 6. 校验评价体系与等级
+            if new_system is None:
+
+                # 未选择评价体系时不能填写等级
+                if new_value is not None:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="未选择评价体系，不能填写等级"
+                    )
+
+            elif new_system not in valid_grades:
+
+                raise HTTPException(
+                    status_code=422,
+                    detail="评价体系仅支持 CCF 或 CAS"
+                )
+
+            elif (
+                new_value is not None
+                and new_value not in valid_grades[new_system]
+            ):
+
+                raise HTTPException(
+                    status_code=422,
+                    detail="评价等级与评价体系不匹配"
+                )
+
+            # 7. 修改 ORM 对象
+            # 注意：这里已经退出了上面的 if / elif
+            # 但仍然位于数据库 Session 内部
+            document.venue = new_venue
+            document.rank_system = new_system
+            document.rank_value = new_value
+
+            # 8. 提交到 SQLite
+            try:
+                db.commit()
+                db.refresh(document)
+
+            except Exception:
+                db.rollback()
+
+                logger.exception(
+                    "论文发表信息保存失败：ID=%s",
+                    document_id
+                )
+
+                raise HTTPException(
+                    status_code=500,
+                    detail="论文发表信息保存失败"
+                )
+
+            # 9. 返回实际写入的内容
+            return {
+                "message": "论文发表信息修改成功",
+                "id": document.id,
+                "venue": document.venue,
+                "rank_system": document.rank_system,
+                "rank_value": document.rank_value,
+            }
+
+def find_managed_pdf(storage_path: str) -> Path | None:
+    """
+    查找 ResearchCopilot 管理的 PDF 副本。
+
+    只允许访问项目 uploads 目录中的 PDF，
+    避免误删用户电脑上的其他文件。
+
+    兼容：
+    backend/uploads/xxx.pdf
+    uploads/xxx.pdf
+    """
+
+    stored = Path(storage_path)
+
+    # 只接受 uploads/文件名.pdf 格式
+    if (
+        stored.is_absolute()
+        or len(stored.parts) != 2
+        or stored.parts[0] != "uploads"
+        or stored.suffix.lower() != ".pdf"
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="PDF 存储路径不符合受管目录规则，已拒绝删除"
+        )
+
+    # 兼容项目重构前后的两个上传目录
+    upload_dirs = [
+        BASE_DIR / "uploads",
+        BASE_DIR.parent / "uploads",
+    ]
+
+    for upload_dir in upload_dirs:
+
+        root = upload_dir.resolve()
+        candidate = (upload_dir / stored.name).resolve()
+
+        # 防止路径跳出 uploads 文件夹
+        if candidate.parent != root:
+            raise HTTPException(
+                status_code=409,
+                detail="检测到不安全的 PDF 存储路径"
+            )
+
+        if candidate.is_file():
+            return candidate
+
+    # 文件可能之前已经丢失
+    # 返回 None，不影响数据库记录删除
+    return None
+
+
+@router.delete("/{document_id}")
+def delete_document(document_id: int):
+    """
+    删除指定论文。
+
+    处理内容：
+    1. documents 中的论文记录
+    2. chunks 中的相关文本
+    3. uploads 中的 PDF 副本
+    4. RAG 内存检索缓存
+
+    注意：该操作不可通过 API 撤销。
+    """
+
+    # 与 PDF 解析任务共用锁，
+    # 防止删除过程中后台仍在处理同一篇论文
+    with _parse_lock:
+
+        with SessionLocal() as db:
+
+            # 1. 查询指定论文
+            document = db.get(
+                Document,
+                document_id
+            )
+
+            if document is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="论文不存在"
+                )
+
+            # 2. 获取需要删除的 PDF 文件
+            pdf_path = find_managed_pdf(
+                document.storage_path
+            )
+
+            filename = document.filename
+
+            # 3. 删除数据库中的论文
+            try:
+
+                # 因为 Chunk 与 Document 存在级联关系，
+                # 对应的 Chunk 也会被清理
+                db.delete(document)
+
+                # 真正提交到 SQLite
+                db.commit()
+
+            except Exception:
+
+                db.rollback()
+
+                logger.exception(
+                    "删除论文数据库记录失败：ID=%s",
+                    document_id
+                )
+
+                raise HTTPException(
+                    status_code=500,
+                    detail="删除论文数据库记录失败"
+                )
+
+        # 4. 清除 RAG 缓存
+        # 下一次调用 get_retriever() 时，
+        # 会从最新数据库重新建立检索索引。
+        get_retriever.cache_clear()
+
+        # 5. 删除 PDF 文件副本
+        file_deleted = False
+        file_warning = None
+
+        if pdf_path is not None:
+
+            try:
+                pdf_path.unlink()
+                file_deleted = True
+
+            except OSError:
+
+                logger.exception(
+                    "PDF 文件删除失败：%s",
+                    pdf_path
+                )
+
+                file_warning = (
+                    "数据库已删除，但 PDF 文件移除失败，"
+                    "需要手动清理"
+                )
+
+        else:
+            file_warning = (
+                "数据库已删除，原 PDF 文件不存在"
+            )
+
+        # 6. 返回删除结果
+        return {
+            "message": "文献数据库记录删除成功",
+            "deleted_id": document_id,
+            "filename": filename,
+            "file_deleted": file_deleted,
+            "warning": file_warning,
+        }

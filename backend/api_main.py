@@ -29,7 +29,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173"
     ],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST","PATCH","DELETE"],
     allow_headers=["Content-Type"]
 )
 
@@ -88,6 +88,5 @@ def chat(request:ChatRequest):
             status_code=500,
             detail="RAG服务内部错误"
         )
-
 
 
